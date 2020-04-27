@@ -1,0 +1,11 @@
+cmake-build-debug/
+
+*.o
+*.log
+*.cache
+*.diff
+*.patch
+*.tmp
+
+#system file
+.DS_Store

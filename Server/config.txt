@@ -1,0 +1,14 @@
+# 工作目录
+work_directory=/Users/wang/CLionProjects/FTP/Server/work_dir/
+# 上传权限
+upload_enable=YES
+# 下载权限
+download_enable=YES
+# 监听端口
+listen_port=7000
+# 传输端口
+trans_port=7001
+# 绑定地址
+bind_ip=127.0.0.1
+# socket监听队列长度
+listen_queue_length=10
