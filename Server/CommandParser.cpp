@@ -74,7 +74,7 @@ void CommandParser::rootStat(char *current, int *c_offset, char *next, int *n_of
     current[*c_offset] = nextChar;
     (*c_offset)++; (*n_offset)++; // 全部移动到将要访问的下一位
     if (nextChar == '\0') {
-        // TODO
+        return;
     } else if (nextChar == '.') {
         CommandParser::oneDotStat(current, c_offset, next, n_offset);
     } else {

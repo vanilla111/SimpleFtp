@@ -49,6 +49,7 @@ Server::Server() {
 Server::~Server() {
     delete [] m_strIP;
     delete properties;
+    delete executor;
     close(m_iListenFd);
 }
 

@@ -1,9 +1,9 @@
 //
-// Created by wang on 2020/4/21.
+// Created by wang on 2020/4/28.
 //
 
-#ifndef FTP_FTPEXCEPTION_H
-#define FTP_FTPEXCEPTION_H
+#ifndef FTP_TRANSEXCEPTION_H
+#define FTP_TRANSEXCEPTION_H
 
 #include <exception>
 
@@ -15,15 +15,15 @@
     }
 
 #define throw_exception(msg) \
-    FtpException e(msg); \
+    TransException e(msg); \
     throw e; \
 
 using namespace std;
 
-struct FtpException: public exception
+struct TransException: public exception
 {
 public:
-    explicit FtpException(const string &msg)
+    explicit TransException(const string &msg)
     {
         _msg = msg;
     }
@@ -37,4 +37,4 @@ protected:
     string _msg;
 };
 
-#endif //FTP_FTPEXCEPTION_H
+#endif //FTP_TRANSEXCEPTION_H

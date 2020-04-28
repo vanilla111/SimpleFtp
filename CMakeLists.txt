@@ -25,3 +25,10 @@ add_executable(CommandExecutor
         Server/CommandParser.cpp
         Server/FileOperations.cpp
         Server/CommandExecutor.cpp)
+
+add_executable(FileTransporter
+        Server/Properties.cpp
+        Server/FileTransporter.cpp)
+
+add_executable(GET_PUT_TEST
+        CLient/CFileTransporter.cpp)

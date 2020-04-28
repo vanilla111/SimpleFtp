@@ -1,6 +1,4 @@
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/event.h>
 #include <netinet/in.h>
 #include <memory.h>
 #include <arpa/inet.h>
