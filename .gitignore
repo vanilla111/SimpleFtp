@@ -1,4 +1,6 @@
 cmake-build-debug/
+test.txt
+Server/work_dir/
 
 *.o
 *.log
