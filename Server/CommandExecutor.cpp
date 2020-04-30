@@ -7,6 +7,8 @@
 #include "headers/CommandExecutor.h"
 #include "headers/FileOperations.h"
 #include "headers/FtpException.h"
+#include "headers/FileTransporter.h"
+#include "headers/ThreadPool.h"
 
 #include <utility>
 
@@ -103,8 +105,16 @@ void CommandExecutor::executeGET(Command *command, Response *response) {
             ss << "Directory doesn't support to download: " << easyName;
         } else if (fileStat.st_mode & S_IROTH) {
             // 用户拥有读该文件的权限
+            cout << "传输文件的存储路径为: " << fileName << endl;
             valid = true;
             ss << fileStat.st_size;
+            cout << "需要传输的文件大小(Bytes)为: " << ss.str() << endl;
+            std::thread task([fileName] {
+                auto *transporter = new FileTransporter(fileName);
+                transporter->run(GET);
+                delete transporter;
+            });
+            task.detach();
         } else {
             valid = false;
             ss << "Permission denied";
@@ -128,29 +138,40 @@ void CommandExecutor::executeGET(Command *command, Response *response) {
 void CommandExecutor::executePUT(Command *command, Response *response) {
     // 得到文件所在的绝对路径
     string easyName = CommandParser::computeNextPath(m_strCurrentDir, command->secondParameter);
-    string fileName = m_strWorkDir + easyName;
+    string saveDir = m_strWorkDir + easyName;
+    string fileName = saveDir + "/" + getFileName(command->firstParameter);
     // 文件属性
     struct stat fileStat{};
     bool valid = true;
     stringstream ss;
-    if ((stat(fileName.c_str(), &fileStat)) < 0) {
+    cout << "目标文件的存储路径为: " << fileName << endl;
+    if ((stat(saveDir.c_str(), &fileStat)) < 0) {
         valid = false;
         ss << "Directory not found: " << easyName;
     } else {
         if (!S_ISDIR(fileStat.st_mode)) {
             valid = false;
-            ss << "This is not a valid storage path: " << easyName <<
+            ss << "This is not a valid storage path: " << saveDir <<
             "\n The storage path must be a directory.";
-        } else if (!(fileStat.st_mode & S_IXOTH)) {
+        } else if (!(fileStat.st_mode & S_IXUSR)) {
             valid = false;
             ss << "Don't have X permission";
-        } else if (!(fileStat.st_mode & S_IROTH)) {
+        } else if (!(fileStat.st_mode & S_IRUSR)) {
             valid = false;
             ss << "Don't have R permission";
-        } else if (!(fileStat.st_mode & S_IWOTH)) {
+        } else if (!(fileStat.st_mode & S_IWUSR)) {
             valid = false;
             ss << "Don't have W permission";
         }
+    }
+    if (valid) {
+        std::thread task([fileName] {
+            auto *transporter = new FileTransporter(fileName);
+            transporter->run(PUT);
+            delete transporter;
+        });
+        task.detach();
+        ss << "文件传输准备就绪";
     }
     strcpy(response->message, ss.str().c_str());
     if (valid) {
@@ -160,17 +181,15 @@ void CommandExecutor::executePUT(Command *command, Response *response) {
     }
 }
 
+string CommandExecutor::getFileName(string path) {
+    if (path.empty())
+        return std::string();
+    return path.substr(path.find_last_of('/') + 1);
+}
+
 //int main() {
-//    /* test serialize */
-//    Response *res = new Response;
-//    res->type = SUCCESS;
-//    string tmp = "successful";
-//    strcpy(res->message, tmp.c_str());
-//    char test[RESPONSE_BUFFER_SIZE + sizeof(ResponseType)];
-//    memcpy(test, (char*)res, RESPONSE_BUFFER_SIZE + sizeof(ResponseType));
-//    Response *res_2 = (Response*)test;
-//    cout << (res_2->type == SUCCESS ? "true" : "false") << endl;
-//    cout << res_2->message << endl;
+//    auto *executor = new CommandExecutor("/Users/wang/CLionProjects/FTP/Server/work_dir/");
+//    cout << executor->getFileName("/a/b/c/../d/e.txt");
 //
 //    return 0;
 //}

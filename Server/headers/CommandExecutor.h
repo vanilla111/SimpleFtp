@@ -19,6 +19,7 @@ protected:
     void executeCD(Command *command, Response *response);
     void executeGET(Command *command, Response *response);
     void executePUT(Command *command, Response *response);
+    static string getFileName(string path);
 
 private:
     string m_strWorkDir;

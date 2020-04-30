@@ -3,7 +3,10 @@ project(FTP)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(FTP main.cpp)
+add_executable(FTP
+        Client/CFileTransporter.cpp
+        Server/CommandParser.cpp
+        main.cpp)
 
 add_executable(Properties Server/Properties.cpp)
 
@@ -16,6 +19,7 @@ add_executable(Server
         Server/CommandParser.cpp
         Server/FileOperations.cpp
         Server/CommandExecutor.cpp
+        Server/FileTransporter.cpp
         Server/Server.cpp)
 
 add_executable(CommandParser
@@ -24,6 +28,8 @@ add_executable(CommandParser
 add_executable(CommandExecutor
         Server/CommandParser.cpp
         Server/FileOperations.cpp
+        Server/FileTransporter.cpp
+        Server/Properties.cpp
         Server/CommandExecutor.cpp)
 
 add_executable(FileTransporter

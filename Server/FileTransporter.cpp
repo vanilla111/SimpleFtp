@@ -20,6 +20,9 @@
 
 #include "headers/FileTransporter.h"
 #include "headers/FtpException.h"
+#include "headers/ThreadPool.h"
+
+#define BUFFER_SIZE 4096
 
 const int kReadEvent =  1;
 const int kWriteEvent = 2;
@@ -47,7 +50,7 @@ FileTransporter::~FileTransporter() {
     close(m_iListenFd);
 }
 
-void FileTransporter::run(Command *command) {
+void FileTransporter::run(CommandType type) {
     // 创建kqueue，类似于epoll类型
     int epollfd = kqueue();
     exit_if(epollfd < 0, "kqueue failed");
@@ -55,7 +58,7 @@ void FileTransporter::run(Command *command) {
     // 开启ET模式
     updateEvents(epollfd, m_iListenFd, kReadEvent | kWriteEvent, true);
     // TODO 为该线程设置等待时间，过期自动结束
-    if (command->type == GET) {
+    if (type == GET) {
         for (;;)
             if (runForGet(epollfd, 50000))
                 break;
@@ -95,15 +98,16 @@ bool FileTransporter::runForGet(int epollfd, int waiteTime) {
                 assert(filefd > 0);
                 struct stat statBuf;
                 fstat(filefd, &statBuf);
-                cout << "stat.st_size = " << statBuf.st_size << endl;
+                cout << "文件大小: stat.st_size = " << statBuf.st_size << " Bytes" << endl;
                 off_t sendLength = statBuf.st_size;
                 off_t hasSendLength = 0;
                 while (hasSendLength < statBuf.st_size) {
                     ::sendfile(filefd, cfd, hasSendLength, &sendLength, nullptr, 0);
                     hasSendLength += sendLength;
                     sendLength = statBuf.st_size - hasSendLength;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
                 }
-                cout << "send length = " << hasSendLength << endl;
+                cout << "成功发送字节数: " << hasSendLength << endl;
                 ::close(filefd);
                 ::close(cfd);
                 return true;
@@ -114,6 +118,56 @@ bool FileTransporter::runForGet(int epollfd, int waiteTime) {
 }
 
 bool FileTransporter::runForPut(int epollfd, int waiteTime) {
+    struct timespec timeout{};
+    timeout.tv_sec = waiteTime / 1000;
+    timeout.tv_nsec = (waiteTime % 1000) * 1000 * 1000;
+    struct kevent activeEvs[2];
+    int n = kevent(epollfd, nullptr, 0, activeEvs,2, &timeout);
+    for (int i = 0; i < n; ++i) {
+        struct kevent kev = activeEvs[i];
+        int fd = (int)(intptr_t)kev.udata;
+        int events = activeEvs[i].filter;
+        // 当客户端接入时就开始传输文件
+        if ((kev.flags & EV_EOF) || events == EVFILT_READ) {
+            if (fd == m_iListenFd) {
+                struct sockaddr_in clientAddr{};
+                socklen_t rsz = sizeof(clientAddr);
+                int cfd = accept(fd, (struct sockaddr *) &clientAddr, &rsz);
+                assert(cfd >= 0);
+                sockaddr_in peer{};
+                socklen_t alen = sizeof(peer);
+                int r = getpeername(cfd, (sockaddr *) &peer, &alen);
+                cout << "客户端连接成功: " << inet_ntoa(clientAddr.sin_addr)
+                     << "\n即将开始传输文件..." << endl;
+                assert(r >= 0);
+                setNonBlocking(cfd);
+                updateEvents(epollfd, cfd, kReadEvent, true);
+            } else {
+                // TODO 这种做法要求对端必须一次性发送完所有的数据，否则会重复覆盖已接收的数据
+                char buffer[BUFFER_SIZE];
+                bzero(buffer, BUFFER_SIZE);
+                FILE *fp = fopen(m_strFilePath.c_str(), "w");
+                if (fp == nullptr) {
+                    throw_exception("文件打开失败：" + m_strFilePath);
+                }
+                int length = 0;
+                cout << "开始接收文件..." << endl;
+                off_t hasRecvLength = 0;
+                while ((length = ::recv(fd, buffer, BUFFER_SIZE, 0)) > 0) {
+                    if (fwrite(buffer, sizeof(char), length, fp) < length) {
+                        fclose(fp);
+                        throw_exception("文件写入失败");
+                    }
+                    hasRecvLength += length;
+                    bzero(buffer, BUFFER_SIZE);
+                }
+                // 接受成功后关闭文件和socket
+                cout << "成功接收文件，存储路径为: " << m_strFilePath << endl;
+                fclose(fp);
+                return true;
+            }
+        }
+    }
     return false;
 }
 
@@ -170,33 +224,21 @@ void FileTransporter::updateEvents(int epollfd, int fd, int events, bool enableE
     exit_if(ret, "kevent failed\n ");
 }
 
-void FileTransporter::handleAccept(int epollfd, int fd) {
-    struct sockaddr_in clientAddr{};
-    socklen_t rsz = sizeof(clientAddr);
-    int cfd = accept(fd, (struct sockaddr *) &clientAddr, &rsz);
-    assert(cfd >= 0);
-    sockaddr_in peer{};
-    socklen_t alen = sizeof(peer);
-    int r = getpeername(cfd, (sockaddr *) &peer, &alen);
-    assert(r >= 0);
-    setNonBlocking(cfd);
-    updateEvents(epollfd, cfd, kReadEvent | kWriteEvent, true);
-}
 
-
-int main() {
-    FileTransporter *ft;
-    try {
-        Command *cmd = new Command;
-        cmd->type = GET;
-        ft = new FileTransporter("/Users/wang/CLionProjects/FTP/Server/work_dir/test.txt");
-        ft->run(cmd);
-    } catch (FtpException &e) {
-        cout << e.what() << endl;
-    }
-    for (int i = 0; i < 100; i++) {
-        cout << "test" << endl;
-        sleep(10);
-    }
-    return 0;
-}
+//int main() {
+//    FileTransporter *ft;
+//    try {
+//        Command *cmd = new Command;
+//        cmd->type = PUT;
+//        ft = new FileTransporter("/Users/wang/CLionProjects/FTP/Server/work_dir/test.txt");
+//        ft->run(cmd);
+//    } catch (FtpException &e) {
+//        cout << e.what() << endl;
+//    }
+//
+//    for (int i = 0; i < 100; i++) {
+//        cout << "test" << endl;
+//        sleep(10);
+//    }
+//    return 0;
+//}

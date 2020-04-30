@@ -138,6 +138,7 @@ void Server::handleRead(int eppllfd, int fd) {
         char sendBuf[sendLen];
         memcpy(sendBuf, (char*)response, sendLen);
         int r = ::write(fd, sendBuf, sendLen);
+        // cout << "响应，发送会数据 Response: type = " << response->type << ", msg = " << response->message << endl;
         delete response;
         // 实际应用中，写出数据可能会返回EAGAIN，此时应当监听可写事件，当可写时再把数据写出
         exit_if(r <= 0, "write error");

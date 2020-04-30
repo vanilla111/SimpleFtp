@@ -13,9 +13,13 @@
 #include <sstream>
 #include <poll.h>
 
-#define SEND_BUFFER_SIZE 4096
-#define RECV_BUFFER_SIZE 4096
+#include "Server/headers/CommandParser.h"
+#include "Server/headers/FtpException.h"
+#include "Client/CFileTransporter.h"
+#include "Client/TransException.h"
+#include "Client/Color.h"
 
+#define SEND_BUFFER_SIZE 4096
 #define RESPONSE_BUFFER_SIZE 2048
 
 enum ResponseType {
@@ -36,8 +40,15 @@ char * strToLower(char *str) {
     return origin;
 }
 
+string getFileName(string path) {
+    if (path.empty())
+        return std::string();
+    return path.substr(path.find_last_of('/') + 1);
+}
+
 int main() {
     const char *ip = "127.0.0.1";
+    string workDir = "/Users/wang/CLionProjects/FTP/";
     int port = 7000;
     int reuse = 1;
     int ret = 0;
@@ -57,6 +68,7 @@ int main() {
     char sendBuffer[SEND_BUFFER_SIZE];
     char recvBuffer[sizeof(Response)];
     string line;
+    Command *command;
     for (;;) {
         memset(sendBuffer, '\0', sizeof(sendBuffer));
         cout << "ftp> ";
@@ -64,6 +76,14 @@ int main() {
         strcpy(sendBuffer, line.c_str());
         if (strcmp(strToLower(sendBuffer), "exit") == 0)
             break;
+        try {
+            command = CommandParser::parseCommandString(sendBuffer, line.length());
+        } catch (FtpException &e) {
+            setColor(F_RED);
+            cout << e.what() << endl;
+            resetFColor();
+            continue;
+        }
         send(sockfd, sendBuffer, strlen(sendBuffer), 0);
 
         pollfd fds[1];
@@ -88,10 +108,44 @@ int main() {
             {
                 ::recv(sockfd, recvBuffer, sizeof(Response), 0);
                 Response *response = (Response*) recvBuffer;
-                cout << response->message << endl;
+                //cout << "Response: type = " << response->type << ", msg = " << response->message << endl;
+                if (response->type == SUCCESS) {
+                    // TODO 处理各种错误
+                    if (command->type == GET) {
+                        cout << "处理GET命令，存储路径为: "<< workDir << getFileName(command->firstParameter) << endl;
+                        off_t fileSize = strtoll(response->message, nullptr, 0);
+                        auto *transporter = new CFileTransporter("127.0.0.1", 7001, workDir + getFileName(command->firstParameter));
+                        try {
+                            transporter->runForGet(fileSize);
+                        } catch (TransException &e) {
+                            setColor(F_RED);
+                            cout << "文件传输异常: " << e.what() << endl;
+                            resetFColor();
+                            delete transporter;
+                        }
+                    } else if (command->type == PUT) {
+                        cout << "处理PUT命令，需要传输文件的存储路径为: "<< workDir << getFileName(command->firstParameter) << endl;
+                        auto *transporter = new CFileTransporter("127.0.0.1", 7001, workDir + getFileName(command->firstParameter));
+                        try {
+                            transporter->runForPut();
+                        } catch (TransException &e) {
+                            setColor(F_RED);
+                            cout << "文件传输异常: " << e.what() << endl;
+                            resetFColor();
+                            delete transporter;
+                        }
+                    } else {
+                        cout << response->message << endl;
+                    }
+                } else {
+                    setColor(F_RED);
+                    cout << response->message << endl;
+                    resetFColor();
+                }
                 break;
             }
         }
+        delete command;
     }
 
     close(sockfd);

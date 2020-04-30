@@ -15,7 +15,7 @@ class FileTransporter {
 public:
     FileTransporter(string filePath);
     ~FileTransporter();
-    void run(Command *command);
+    void run(CommandType type);
     bool isInitialSuccess();
 
 protected:
@@ -24,7 +24,6 @@ protected:
     int setNonBlocking(int fd);
     void initSocketFd();
     void updateEvents(int epollfd, int fd, int events, bool enableET);
-    void handleAccept(int epollfd, int fd);
 
 private:
     string m_strFilePath;
