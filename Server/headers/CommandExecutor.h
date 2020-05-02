@@ -10,7 +10,7 @@
 
 class CommandExecutor {
 public:
-    CommandExecutor(string workDir);
+    explicit CommandExecutor(string workDir);
     ~CommandExecutor();
     Response * executeCommand(Command *command);
 
@@ -25,7 +25,6 @@ private:
     string m_strWorkDir;
     string m_strCurrentDir;
     char m_strLastDir[MAX_ABS_PATH_LEN];
-
 };
 
 #endif //FTP_COMMANDEXECUTOR_H

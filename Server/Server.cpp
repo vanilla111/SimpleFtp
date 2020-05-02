@@ -118,9 +118,6 @@ void Server::handleRead(int eppllfd, int fd) {
         offset += onceReadLen;
     }
     bool valid = (errno == EAGAIN || errno == EWOULDBLOCK);
-    if (offset >= BUFFER_SIZE) {
-        // 命令长度过长，告知客户端错误
-    }
     buf[offset] = '\0';
     if (offset > 0) {
         cout << "接收到[" << offset << "]字节的数据：" << buf << endl;
@@ -138,7 +135,6 @@ void Server::handleRead(int eppllfd, int fd) {
         char sendBuf[sendLen];
         memcpy(sendBuf, (char*)response, sendLen);
         int r = ::write(fd, sendBuf, sendLen);
-        // cout << "响应，发送会数据 Response: type = " << response->type << ", msg = " << response->message << endl;
         delete response;
         // 实际应用中，写出数据可能会返回EAGAIN，此时应当监听可写事件，当可写时再把数据写出
         exit_if(r <= 0, "write error");

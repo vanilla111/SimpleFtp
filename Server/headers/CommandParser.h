@@ -27,6 +27,8 @@ class CommandParser {
 public:
     static Command *parseCommandString(const char *line, int length);
     static void parseCD(Command *command, char *lastDir);
+
+public:
     static string computeNextPath(string currentDir, string parameter);
 
 protected:
