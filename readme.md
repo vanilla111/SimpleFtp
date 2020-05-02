@@ -72,7 +72,7 @@ ONESHOT | EPOLLONESHOT | EV_ONESHOT
 
 配置选项管理器，从文件中读取并保存程序运行所需的必要参数。其实现的方法如下图所示：
 
-![](imgs/3.png)
+![](./imgs/3.png)
 
 配置文件的内容如下所示：
 
